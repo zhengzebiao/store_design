@@ -94,7 +94,7 @@ Python 后端 API 服务
 | 数据校验 | Pydantic v2 | 对接口入参与出参、装修 JSON 做结构化校验。 |
 | 服务分层 | Router + Service + Repository | 保持清晰后端架构，便于测试和扩展。 |
 | ORM | SQLAlchemy 2.x | 成熟稳定，适合承接模板、页面、组件等业务模型。 |
-| 数据库 | MySQL | 适合业务数据持久化，便于与现有系统生态对接。 |
+| 数据库 | PostgreSQL | 适合业务数据持久化，`JSONB` 对装修组件树、页面配置、组件 schema 更友好。 |
 | 迁移 | Alembic | 管理新增表和字段版本。 |
 | 缓存 | Redis 可选 | 缓存组件元数据、模板分类等低频数据。 |
 | 接口文档 | OpenAPI / Swagger | 前后端契约清晰。 |
@@ -109,6 +109,7 @@ Python 后端 API 服务
 3. 在 Repository 层处理数据库访问和存储服务访问。
 4. 通过 Pydantic schema 约束装修页面、组件配置、模板数据。
 5. 通过 OpenAPI 固化前后端接口契约。
+6. 数据库使用 PostgreSQL，装修组件树、页面配置、组件 schema 等结构化 JSON 使用 `JSONB` 存储。
 
 ## 5. qiankun 微前端方案
 
@@ -758,21 +759,21 @@ backend/
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT UNSIGNED | 是 | 自增 | 模板 ID。 |
-| `company_id` | BIGINT UNSIGNED | 是 | - | 企业 ID。 |
+| `id` | BIGSERIAL | 是 | 自增 | 模板 ID。 |
+| `company_id` | BIGINT | 是 | - | 企业 ID。 |
 | `name` | VARCHAR(255) | 是 | - | 模板名称。 |
 | `type` | VARCHAR(32) | 是 | `diy` | 模板类型。 |
-| `is_sel` | TINYINT | 是 | `0` | 是否使用中。 |
-| `is_open_tabbar` | TINYINT | 是 | `0` | 是否开启底部导航。 |
-| `other_company_show` | TINYINT | 是 | `0` | 是否同步或展示到其他企业。 |
-| `pid` | BIGINT UNSIGNED | 是 | `0` | 参考模板或复制来源。 |
+| `is_sel` | SMALLINT | 是 | `0` | 是否使用中。 |
+| `is_open_tabbar` | SMALLINT | 是 | `0` | 是否开启底部导航。 |
+| `other_company_show` | SMALLINT | 是 | `0` | 是否同步或展示到其他企业。 |
+| `pid` | BIGINT | 是 | `0` | 参考模板或复制来源。 |
 | `head_img` | TEXT | 否 | `NULL` | 模板封面图。 |
 | `price` | DECIMAL(10,2) | 是 | `0.00` | 模板价格。 |
-| `theme_id` | BIGINT UNSIGNED | 否 | `NULL` | 主题 ID。 |
-| `system_recommend_template` | TINYINT | 是 | `0` | 是否系统推荐模板。 |
-| `created_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 创建时间。 |
-| `updated_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 更新时间。 |
-| `deleted_at` | DATETIME | 否 | `NULL` | 软删除时间。 |
+| `theme_id` | BIGINT | 否 | `NULL` | 主题 ID。 |
+| `system_recommend_template` | SMALLINT | 是 | `0` | 是否系统推荐模板。 |
+| `created_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 创建时间。 |
+| `updated_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 更新时间。 |
+| `deleted_at` | TIMESTAMPTZ | 否 | `NULL` | 软删除时间。 |
 
 索引与约束：
 
@@ -789,26 +790,26 @@ backend/
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT UNSIGNED | 是 | 自增 | 页面记录 ID。 |
-| `diy_id` | BIGINT UNSIGNED | 是 | - | 模板 ID。 |
-| `company_id` | BIGINT UNSIGNED | 是 | - | 企业 ID。 |
+| `id` | BIGSERIAL | 是 | 自增 | 页面记录 ID。 |
+| `diy_id` | BIGINT | 是 | - | 模板 ID。 |
+| `company_id` | BIGINT | 是 | - | 企业 ID。 |
 | `type` | VARCHAR(32) | 是 | `home_page` | 页面类型。 |
 | `page_name` | VARCHAR(255) | 是 | - | 页面名称。 |
-| `datas` | JSON | 是 | JSON_ARRAY() | 组件树。 |
-| `page_info` | JSON | 是 | JSON_OBJECT() | 页面配置。 |
-| `member_level` | JSON | 是 | JSON_ARRAY() | 可访问会员等级。 |
-| `level` | JSON | 是 | JSON_ARRAY() | 会员等级列表快照。 |
-| `status` | TINYINT | 是 | `1` | 页面状态。 |
-| `page_sort` | TINYINT | 是 | `2` | 页面端类型/页面分类。 |
-| `page_scene` | TINYINT | 是 | `2` | 页面场景。 |
-| `top_id` | JSON | 是 | JSON_OBJECT() | 顶部菜单配置。 |
-| `foot_type` | TINYINT | 是 | `1` | 底部导航类型。 |
-| `foot_id` | JSON | 是 | JSON_OBJECT() | 底部导航配置。 |
+| `datas` | JSONB | 是 | `'[]'::jsonb` | 组件树。 |
+| `page_info` | JSONB | 是 | `'{}'::jsonb` | 页面配置。 |
+| `member_level` | JSONB | 是 | `'[]'::jsonb` | 可访问会员等级。 |
+| `level` | JSONB | 是 | `'[]'::jsonb` | 会员等级列表快照。 |
+| `status` | SMALLINT | 是 | `1` | 页面状态。 |
+| `page_sort` | SMALLINT | 是 | `2` | 页面端类型/页面分类。 |
+| `page_scene` | SMALLINT | 是 | `2` | 页面场景。 |
+| `top_id` | JSONB | 是 | `'{}'::jsonb` | 顶部菜单配置。 |
+| `foot_type` | SMALLINT | 是 | `1` | 底部导航类型。 |
+| `foot_id` | JSONB | 是 | `'{}'::jsonb` | 底部导航配置。 |
 | `page_type` | VARCHAR(32) | 是 | `2` | 页面适用端。 |
 | `schema_version` | INT | 是 | `1` | 页面数据协议版本。 |
-| `created_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 创建时间。 |
-| `updated_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 更新时间，用于乐观锁。 |
-| `deleted_at` | DATETIME | 否 | `NULL` | 软删除时间。 |
+| `created_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 创建时间。 |
+| `updated_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 更新时间，用于乐观锁。 |
+| `deleted_at` | TIMESTAMPTZ | 否 | `NULL` | 软删除时间。 |
 
 索引与约束：
 
@@ -818,6 +819,8 @@ backend/
 | `idx_company_scene` | `company_id`, `page_scene` | INDEX | 按页面场景查询。 |
 | `idx_company_updated` | `company_id`, `updated_at` | INDEX | 最近编辑排序。 |
 | `idx_diy_id` | `diy_id` | INDEX | 从模板进入详情。 |
+| `idx_page_datas_gin` | `datas` | GIN | 按组件 key 检索页面时使用。 |
+| `idx_page_info_gin` | `page_info` | GIN | 按页面配置字段检索时使用。 |
 
 ### 9.3.3 `store_design_component_meta`
 
@@ -825,19 +828,19 @@ backend/
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT UNSIGNED | 是 | 自增 | 组件元数据 ID。 |
+| `id` | BIGSERIAL | 是 | 自增 | 组件元数据 ID。 |
 | `component_key` | VARCHAR(64) | 是 | - | 组件唯一标识。 |
 | `name` | VARCHAR(100) | 是 | - | 组件名称。 |
 | `category_id` | INT | 是 | `0` | 组件分类 ID。 |
 | `icon` | VARCHAR(255) | 否 | `NULL` | 组件图标。 |
-| `tpl_id` | BIGINT UNSIGNED | 否 | `NULL` | 默认模板 ID。 |
-| `templates` | JSON | 是 | JSON_ARRAY() | 组件模板列表。 |
-| `schema_json` | JSON | 是 | JSON_OBJECT() | 动态表单 schema。 |
-| `default_data_json` | JSON | 是 | JSON_OBJECT() | 默认 `remote_data`。 |
-| `enabled` | TINYINT | 是 | `1` | 是否启用。 |
+| `tpl_id` | BIGINT | 否 | `NULL` | 默认模板 ID。 |
+| `templates` | JSONB | 是 | `'[]'::jsonb` | 组件模板列表。 |
+| `schema_json` | JSONB | 是 | `'{}'::jsonb` | 动态表单 schema。 |
+| `default_data_json` | JSONB | 是 | `'{}'::jsonb` | 默认 `remote_data`。 |
+| `enabled` | SMALLINT | 是 | `1` | 是否启用。 |
 | `sort` | INT | 是 | `0` | 排序。 |
-| `created_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 创建时间。 |
-| `updated_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 更新时间。 |
+| `created_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 创建时间。 |
+| `updated_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 更新时间。 |
 
 索引与约束：
 
@@ -846,6 +849,7 @@ backend/
 | `uk_component_key` | `component_key` | UNIQUE | 组件唯一。 |
 | `idx_category_sort` | `category_id`, `sort` | INDEX | 左侧组件面板排序。 |
 | `idx_enabled` | `enabled` | INDEX | 过滤禁用组件。 |
+| `idx_schema_json_gin` | `schema_json` | GIN | 按 schema 内容检索或排查时使用。 |
 
 ### 9.3.4 `store_design_asset`
 
@@ -853,14 +857,14 @@ backend/
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT UNSIGNED | 是 | 自增 | 资源 ID。 |
-| `company_id` | BIGINT UNSIGNED | 是 | - | 企业 ID。 |
+| `id` | BIGSERIAL | 是 | 自增 | 资源 ID。 |
+| `company_id` | BIGINT | 是 | - | 企业 ID。 |
 | `asset_type` | VARCHAR(32) | 是 | - | 资源类型，如 `image`。 |
 | `url` | TEXT | 是 | - | 资源访问地址。 |
 | `filename` | VARCHAR(255) | 否 | `NULL` | 原始文件名。 |
 | `mime_type` | VARCHAR(100) | 否 | `NULL` | MIME 类型。 |
-| `size` | BIGINT UNSIGNED | 是 | `0` | 文件大小。 |
-| `created_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 创建时间。 |
+| `size` | BIGINT | 是 | `0` | 文件大小。 |
+| `created_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 创建时间。 |
 
 索引：`idx_company_created(company_id, created_at)`。
 
@@ -870,16 +874,16 @@ backend/
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
-| `id` | BIGINT UNSIGNED | 是 | 自增 | 日志 ID。 |
-| `company_id` | BIGINT UNSIGNED | 是 | - | 企业 ID。 |
-| `diy_id` | BIGINT UNSIGNED | 否 | `NULL` | 模板 ID。 |
-| `page_id` | BIGINT UNSIGNED | 否 | `NULL` | 页面 ID。 |
-| `operator_id` | BIGINT UNSIGNED | 否 | `NULL` | 操作人 ID，暂不鉴权时可为空。 |
+| `id` | BIGSERIAL | 是 | 自增 | 日志 ID。 |
+| `company_id` | BIGINT | 是 | - | 企业 ID。 |
+| `diy_id` | BIGINT | 否 | `NULL` | 模板 ID。 |
+| `page_id` | BIGINT | 否 | `NULL` | 页面 ID。 |
+| `operator_id` | BIGINT | 否 | `NULL` | 操作人 ID，暂不鉴权时可为空。 |
 | `operation` | VARCHAR(64) | 是 | - | 操作类型，如 `save`、`delete`、`use`。 |
-| `before_snapshot` | JSON | 否 | `NULL` | 操作前摘要。 |
-| `after_snapshot` | JSON | 否 | `NULL` | 操作后摘要。 |
+| `before_snapshot` | JSONB | 否 | `NULL` | 操作前摘要。 |
+| `after_snapshot` | JSONB | 否 | `NULL` | 操作后摘要。 |
 | `ip` | VARCHAR(64) | 否 | `NULL` | 操作 IP。 |
-| `created_at` | DATETIME | 是 | CURRENT_TIMESTAMP | 操作时间。 |
+| `created_at` | TIMESTAMPTZ | 是 | CURRENT_TIMESTAMP | 操作时间。 |
 
 索引：`idx_company_diy_created(company_id, diy_id, created_at)`。
 
@@ -1265,8 +1269,27 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8000:8000"
+    depends_on:
+      - store-design-postgres
+
+  store-design-postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - store_design_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  store_design_pgdata:
 ```
 
 ### 16.6 测试环境与生产环境区分
@@ -1326,6 +1349,10 @@ services:
 | `REGISTRY_TOKEN` | 镜像仓库 token | 镜像仓库 token | 镜像仓库访问 token。 |
 | `ENV_FILE` | 测试 `.env` 内容 | 生产 `.env` 内容 | 部署时写入服务器的环境变量。 |
 | `HEALTHCHECK_URL` | 测试健康检查地址 | 生产健康检查地址 | 部署后校验服务状态。 |
+| `DATABASE_URL` | 测试 PostgreSQL 连接 | 生产 PostgreSQL 连接 | 后端数据库连接串。 |
+| `POSTGRES_DB` | 测试数据库名 | 生产数据库名 | docker-compose 内置 PostgreSQL 使用。 |
+| `POSTGRES_USER` | 测试数据库用户 | 生产数据库用户 | docker-compose 内置 PostgreSQL 使用。 |
+| `POSTGRES_PASSWORD` | 测试数据库密码 | 生产数据库密码 | docker-compose 内置 PostgreSQL 使用。 |
 
 ### 16.9 GitHub Actions 示例
 
@@ -1511,7 +1538,7 @@ jobs:
 ## 19. 待确认问题
 
 1. Python 后端是否新建独立服务，还是并入现有后端工程？
-2. 数据库是否沿用现有 MySQL 实例，还是新建库表？
+2. 数据库是否使用独立 PostgreSQL 实例，还是接入公司已有 PostgreSQL 集群？
 3. 组件元数据首期由数据库维护，还是由配置文件初始化导入数据库？
 4. 上传资源使用本地存储、对象存储，还是复用现有文件服务？
 5. 无鉴权阶段是否限定 IP、环境或企业范围？
