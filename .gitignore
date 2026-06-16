@@ -13,6 +13,10 @@ dist/
 build/
 coverage/
 htmlcov/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+backend/package-lock.json
 
 # env
 .env
