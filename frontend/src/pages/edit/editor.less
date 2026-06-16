@@ -1,0 +1,59 @@
+.store-editor {
+  min-height: 100vh;
+}
+
+.store-editor__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 16px;
+  background: #fff;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.store-editor__body {
+  min-height: calc(100vh - 56px);
+}
+
+.store-editor__panel {
+  padding: 16px;
+  overflow: auto;
+  border-right: 1px solid #edf0f5;
+}
+
+.store-editor__panel:last-child {
+  border-right: 0;
+  border-left: 1px solid #edf0f5;
+}
+
+.store-editor__canvas-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  background: #f5f7fb;
+}
+
+.store-editor__canvas {
+  width: 375px;
+  min-height: 667px;
+  padding: 12px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgb(15 23 42 / 8%);
+}
+
+.store-editor__component {
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.store-editor__component.is-selected {
+  border-color: #1677ff;
+}
+
+.store-editor__component-title {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
