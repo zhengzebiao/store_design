@@ -664,7 +664,293 @@ interface DesignComponent {
 5. 模板、页面、组件元数据具备基础测试覆盖。
 6. 暂无鉴权时，仍预留租户、操作者和审计扩展字段。
 
-## 14. 风险与应对
+## 14. 容器化与自动部署方案
+
+### 14.1 Docker 容器化目标
+
+1. React 子应用、Python 后端均通过 Docker 镜像交付。
+2. 本地、测试、生产环境使用一致的容器运行方式。
+3. 支持 GitHub Actions 自动构建镜像、推送镜像、远程服务器部署。
+4. 支持一键回滚到上一版本镜像。
+5. 所有敏感配置通过环境变量或 GitHub Secrets 注入，不写入代码仓库。
+
+### 14.2 镜像规划
+
+| 服务 | 镜像 | 说明 |
+| --- | --- | --- |
+| React 子应用 | `store-design-web` | 构建静态资源，由 Nginx 容器提供访问。 |
+| Python 后端 | `store-design-api` | FastAPI + Uvicorn/Gunicorn 服务。 |
+| Nginx 网关 | `store-design-nginx` 可选 | 统一代理前端静态资源和后端 API。 |
+
+### 14.3 推荐目录结构
+
+```text
+store_design/
+  frontend/
+    Dockerfile
+    nginx.conf
+  backend/
+    Dockerfile
+    app/
+  deploy/
+    docker-compose.yml
+    docker-compose.prod.yml
+    nginx.conf
+  .github/
+    workflows/
+      deploy.yml
+```
+
+### 14.4 Dockerfile 建议
+
+React 子应用镜像：
+
+```dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM nginx:1.27-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+```
+
+Python 后端镜像：
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./app
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### 14.5 docker-compose 部署建议
+
+```yaml
+services:
+  store-design-web:
+    image: ${REGISTRY}/store-design-web:${IMAGE_TAG}
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - store-design-api
+
+  store-design-api:
+    image: ${REGISTRY}/store-design-api:${IMAGE_TAG}
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+```
+
+### 14.6 测试环境与生产环境区分
+
+| 项目 | 测试环境 | 生产环境 |
+| --- | --- | --- |
+| GitHub Environment | `test` | `production` |
+| 触发分支 | `develop` 或 `test` | `main` 或 release tag |
+| 是否自动部署 | 自动部署 | 建议人工审批后部署 |
+| 镜像 tag | `test-${GITHUB_SHA::7}` | `prod-${GITHUB_SHA::7}` 或 `vX.Y.Z` |
+| 服务器目录 | `/opt/store_design_test` | `/opt/store_design_prod` |
+| 环境变量文件 | `.env.test` | `.env.prod` |
+| 前端访问域名 | `test-store-design.example.com` | `store-design.example.com` |
+| API 地址 | 测试 API / 测试数据库 | 生产 API / 生产数据库 |
+| 容器项目名 | `store_design_test` | `store_design_prod` |
+| 部署策略 | 快速验证，允许频繁部署 | 稳定发布，部署前备份版本 |
+
+### 14.7 GitHub Actions 自动部署流程
+
+触发方式：
+
+1. PR 阶段只执行 lint、test、build，不部署。
+2. `develop` 或 `test` 分支 push 自动部署测试环境。
+3. `main` 分支 push 或 release tag 部署生产环境，建议配置 GitHub Environment approval。
+4. 支持 `workflow_dispatch` 手动选择部署环境和镜像 tag。
+
+流程：
+
+```text
+代码提交
+  -> GitHub Actions checkout
+  -> 安装依赖
+  -> 前端 lint/test/build
+  -> 后端 test
+  -> 判断部署环境 test/production
+  -> 构建带环境前缀的 Docker 镜像 tag
+  -> 推送镜像到 GHCR 或私有镜像仓库
+  -> SSH 登录对应环境远程服务器
+  -> 写入对应环境 IMAGE_TAG 和 .env
+  -> docker compose --project-name 对应环境 pull
+  -> docker compose --project-name 对应环境 up -d
+  -> 执行对应环境健康检查
+  -> 部署成功/失败通知
+```
+
+### 14.8 GitHub Secrets
+
+建议使用 GitHub Environments 分别维护 `test` 和 `production` 的 Secrets，避免测试环境和生产环境配置混用。
+
+| Secret | 测试环境 | 生产环境 | 说明 |
+| --- | --- | --- | --- |
+| `DEPLOY_HOST` | 测试服务器地址 | 生产服务器地址 | 远程服务器地址。 |
+| `DEPLOY_PORT` | 测试 SSH 端口 | 生产 SSH 端口 | SSH 端口。 |
+| `DEPLOY_USER` | 测试部署用户 | 生产部署用户 | SSH 用户。 |
+| `DEPLOY_SSH_KEY` | 测试 SSH 私钥 | 生产 SSH 私钥 | SSH 私钥。 |
+| `REGISTRY_USERNAME` | 镜像仓库用户名 | 镜像仓库用户名 | 镜像仓库用户名。 |
+| `REGISTRY_TOKEN` | 镜像仓库 token | 镜像仓库 token | 镜像仓库访问 token。 |
+| `ENV_FILE` | 测试 `.env` 内容 | 生产 `.env` 内容 | 部署时写入服务器的环境变量。 |
+| `HEALTHCHECK_URL` | 测试健康检查地址 | 生产健康检查地址 | 部署后校验服务状态。 |
+
+### 14.9 GitHub Actions 示例
+
+```yaml
+name: deploy-store-design
+
+on:
+  push:
+    branches: [develop, test, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deploy environment
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - production
+      image_tag:
+        description: Image tag to deploy, optional
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'production' || 'test') }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve deploy environment
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DEPLOY_ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            DEPLOY_ENV="production"
+          else
+            DEPLOY_ENV="test"
+          fi
+          echo "DEPLOY_ENV=${DEPLOY_ENV}" >> $GITHUB_ENV
+
+      - name: Set image tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          elif [ "$DEPLOY_ENV" = "production" ]; then
+            IMAGE_TAG="prod-${GITHUB_SHA::7}"
+          else
+            IMAGE_TAG="test-${GITHUB_SHA::7}"
+          fi
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Build and push web image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/store-design-web:${IMAGE_TAG} ./frontend
+          docker push ghcr.io/${{ github.repository }}/store-design-web:${IMAGE_TAG}
+
+      - name: Build and push api image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/store-design-api:${IMAGE_TAG} ./backend
+          docker push ghcr.io/${{ github.repository }}/store-design-api:${IMAGE_TAG}
+
+      - name: Deploy to remote server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            if [ "${{ env.DEPLOY_ENV }}" = "production" ]; then
+              DEPLOY_DIR="/opt/store_design_prod"
+              PROJECT_NAME="store_design_prod"
+            else
+              DEPLOY_DIR="/opt/store_design_test"
+              PROJECT_NAME="store_design_test"
+            fi
+            cd $DEPLOY_DIR
+            printf '%s' '${{ secrets.ENV_FILE }}' > .env
+            export IMAGE_TAG=${{ env.IMAGE_TAG }}
+            docker compose --project-name $PROJECT_NAME pull
+            docker compose --project-name $PROJECT_NAME up -d
+            docker image prune -f
+
+      - name: Health check
+        run: curl -fsS ${{ secrets.HEALTHCHECK_URL }}
+```
+
+### 14.10 远程服务器要求
+
+1. 已安装 Docker Engine 和 Docker Compose Plugin。
+2. 测试环境部署目录建议为 `/opt/store_design_test`。
+3. 生产环境部署目录建议为 `/opt/store_design_prod`。
+4. 两套环境分别保存 `docker-compose.yml`、`.env` 和必要 Nginx 配置。
+5. 测试和生产使用不同端口、域名、数据库、对象存储 bucket 和日志目录。
+6. 防火墙开放 Web 端口和必要 API 端口。
+7. 生产环境建议由统一 Nginx 或网关反代到容器服务。
+8. 同一台服务器部署测试和生产时，必须使用不同 compose project name，避免容器名、网络名、volume 冲突。
+
+### 14.11 健康检查与回滚
+
+健康检查：
+
+1. 测试环境检查测试域名下 `/store_design/home`、`/store_design/edit` 和 `/health`。
+2. 生产环境检查生产域名下 `/store_design/home`、`/store_design/edit` 和 `/health`。
+3. 部署后 GitHub Actions 使用当前环境的 `HEALTHCHECK_URL` 执行 `curl` 校验。
+4. 健康检查失败时标记部署失败，并保留当前日志用于排查。
+
+回滚方式：
+
+1. 测试环境允许直接重新部署上一版本 `test-*` 镜像。
+2. 生产环境回滚必须使用上一版本 `prod-*` 或 release tag 镜像。
+3. 远程服务器分别保存测试和生产上一版本 `IMAGE_TAG`。
+4. 回滚时修改对应环境 `.env` 中 `IMAGE_TAG` 为上一版本。
+5. 执行 `docker compose --project-name <env_project> pull && docker compose --project-name <env_project> up -d`。
+6. 回滚后再次执行对应环境健康检查。
+
+### 14.12 部署验收标准
+
+1. GitHub Actions 能在测试分支提交后自动构建并部署测试环境。
+2. GitHub Actions 能在生产分支或 release tag 下部署生产环境。
+3. 生产环境部署支持 GitHub Environment 人工审批。
+4. 测试和生产镜像 tag 可区分，分别带 `test-`、`prod-` 或版本号前缀。
+5. 测试和生产使用不同 Secrets、`.env`、服务器目录和 compose project name。
+6. 镜像能成功推送到镜像仓库。
+7. Actions 能通过 SSH 登录对应环境远程服务器并更新容器。
+8. 部署后对应环境 `/store_design/home`、`/store_design/edit` 可访问。
+9. 对应环境后端 `/health` 可访问。
+10. 支持通过指定旧 `IMAGE_TAG` 完成测试或生产环境回滚。
+
+## 15. 风险与应对
 
 | 风险 | 影响 | 应对 |
 | --- | --- | --- |
@@ -674,8 +960,12 @@ interface DesignComponent {
 | 拖拽编辑器复杂度高 | 开发周期延长 | 分阶段交付：先单层拖拽，再支持嵌套组件。 |
 | 暂无鉴权 | 存在误操作风险 | 限定环境访问，后续增加鉴权中间件。 |
 | 新旧入口切换认知成本 | 用户找不到新页面 | 菜单直接配置新入口，不暴露旧入口。 |
+| Docker 镜像构建失败 | 阻断部署 | Actions 中分前端、后端独立构建，保留构建日志和缓存。 |
+| 远程服务器部署失败 | 服务不可用 | 部署前备份当前 IMAGE_TAG，失败后自动或手动回滚。 |
+| 环境变量泄露 | 安全风险 | 使用 GitHub Secrets 和服务器 `.env`，禁止提交敏感配置。 |
+| 测试和生产环境混用 | 数据污染或误发布 | 使用 GitHub Environments、独立 Secrets、独立部署目录和不同镜像 tag。 |
 
-## 15. 里程碑建议
+## 16. 里程碑建议
 
 | 阶段 | 周期 | 产出 |
 | --- | --- | --- |
@@ -685,9 +975,10 @@ interface DesignComponent {
 | 数据模型与接口 | 4-6 天 | templates/pages/components/assets 接口。 |
 | 首页开发 | 3-5 天 | `/store_design/home` 可用。 |
 | 编辑器开发 | 2-3 周 | `/store_design/edit` 核心编辑、保存可用。 |
-| 联调验收 | 1 周 | 前后端联调、主应用接入、验收报告。 |
+| 容器化与 CI/CD | 3-5 天 | Dockerfile、docker-compose、GitHub Actions 自动部署。 |
+| 联调验收 | 1 周 | 前后端联调、主应用接入、自动部署验收报告。 |
 
-## 16. 待确认问题
+## 17. 待确认问题
 
 1. Python 后端是否新建独立服务，还是并入现有后端工程？
 2. 数据库是否沿用现有 MySQL 实例，还是新建库表？
@@ -695,3 +986,9 @@ interface DesignComponent {
 4. 上传资源使用本地存储、对象存储，还是复用现有文件服务？
 5. 无鉴权阶段是否限定 IP、环境或企业范围？
 6. 保存失败时是否需要导出前端装修 JSON 供人工恢复？
+7. 镜像仓库使用 GHCR、Docker Hub，还是公司私有仓库？
+8. 远程服务器部署路径、域名、端口和反向代理规则是什么？
+9. GitHub Actions 部署生产环境是否需要人工审批？
+10. 测试环境和生产环境分别使用哪些分支触发？
+11. 测试环境和生产环境是否部署在同一台服务器？如果是，端口和容器 project name 如何规划？
+12. 测试数据库、生产数据库、对象存储 bucket 是否完全隔离？
