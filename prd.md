@@ -39,7 +39,7 @@
 
 | 参数 | 示例 | 说明 |
 | --- | --- | --- |
-| `templateId` | `/store_design/edit?templateId=1001` | 编辑指定模板。 |
+| `id` | `/store_design/edit?id=1001` | 模板 ID，对应列表字段 `id`，编辑详情查询时作为 `diy_id`。 |
 | `mode` | `create/edit/copy` | 创建、编辑、复制。 |
 | `scene` | `home/member/custom` | 页面场景。 |
 
@@ -186,19 +186,21 @@ const routes = [
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 模板 ID。 |
-| `title` | 模板名称。 |
-| `coverUrl` | 模板封面。 |
-| `templateType` | 系统模板、自定义模板。 |
-| `scene` | 首页、会员中心、普通页面等。 |
-| `status` | 使用中、未使用、不可用。 |
+| `name` | 模板名称。 |
+| `head_img` | 模板封面。 |
+| `type` | 模板类型，例如 `diy`。 |
+| `is_sel` | 是否使用中。 |
+| `is_open_tabbar` | 是否开启底部导航。 |
+| `system_recommend_template` | 是否系统推荐模板。 |
+| `pid` | 参考模板或复制来源。 |
 | `price` | 价格，免费模板显示免费。 |
-| `updatedAt` | 最近更新时间。 |
+| `updated_at` | 最近更新时间。 |
 
 ### 6.1.3 操作
 
 1. 点击“新建装修”进入 `/store_design/edit?mode=create`。
-2. 点击“编辑”进入 `/store_design/edit?mode=edit&templateId={id}`。
-3. 点击“复制”进入 `/store_design/edit?mode=copy&templateId={id}`。
+2. 点击“编辑”进入 `/store_design/edit?mode=edit&id={id}`。
+3. 点击“复制”进入 `/store_design/edit?mode=copy&id={id}`。
 4. 点击“使用模板”调用 Python 后端接口使模板生效。
 5. 点击“删除”删除自定义模板。
 6. 点击“刷新数据”重新拉取模板列表。
@@ -227,8 +229,8 @@ const routes = [
 | 模式 | 参数 | 行为 |
 | --- | --- | --- |
 | 创建 | `mode=create` | 初始化空白装修页。 |
-| 编辑 | `mode=edit&templateId={id}` | 加载指定模板详情并编辑。 |
-| 复制 | `mode=copy&templateId={id}` | 加载模板详情后生成新模板数据。 |
+| 编辑 | `mode=edit&id={id}` | 加载指定模板详情并编辑。 |
+| 复制 | `mode=copy&id={id}` | 加载模板详情后生成新模板数据。 |
 
 ### 6.2.3 组件面板
 
@@ -247,13 +249,13 @@ const routes = [
 
 ```ts
 interface ComponentMeta {
-  key: string
+  component_key: string
   name: string
-  category: string
+  category_id?: number | string
   icon?: string
-  defaultTemplateId?: string
+  tpl_id?: number | string
   templates: ComponentTemplate[]
-  defaultData: Record<string, unknown>
+  default_data?: Record<string, unknown>
 }
 ```
 
@@ -324,31 +326,28 @@ Query：
 | 参数 | 说明 |
 | --- | --- |
 | `page` | 页码。 |
-| `pageSize` | 每页数量。 |
+| `limit` | 每页数量。 |
 | `keyword` | 搜索关键词。 |
-| `scene` | 页面场景。 |
-| `templateType` | 模板类型。 |
-| `status` | 模板状态。 |
+| `type` | 模板类型，例如 `diy`。 |
+| `is_sel` | 是否使用中。 |
 
 Response：
 
 ```json
 {
   "success": true,
-  "data": {
-    "items": [],
-    "page": 1,
-    "pageSize": 20,
-    "total": 0
-  }
+  "data": [],
+  "current_page": 1,
+  "limit": 20,
+  "total": 0
 }
 ```
 
 ### 7.2.2 模板详情
 
-`GET /api/store-design/templates/{templateId}`
+`GET /api/store-design/templates/{id}`
 
-用途：进入编辑页时加载模板详情、页面配置、组件列表。
+用途：进入编辑页时加载模板详情、页面配置、组件列表。路径参数 `id` 对应模板列表字段 `id`，后端按 `diy_id` 查询详情。
 
 ### 7.2.3 组件元数据
 
@@ -365,14 +364,16 @@ Request：
 ```json
 {
   "mode": "create",
-  "templateId": "",
-  "page": {
-    "title": "首页装修",
-    "scene": "home",
-    "settings": {},
-    "components": []
-  },
-  "coverImage": ""
+  "id": "",
+  "diy_id": "",
+  "page_name": "首页装修",
+  "type": "home_page",
+  "page_sort": 2,
+  "page_scene": 2,
+  "page_type": "2",
+  "page_info": {},
+  "datas": [],
+  "head_img": ""
 }
 ```
 
@@ -382,8 +383,9 @@ Response：
 {
   "success": true,
   "data": {
-    "templateId": "1001",
-    "targetUrl": "/store_design/edit?mode=edit&templateId=1001",
+    "id": "69",
+    "diy_id": "1001",
+    "url": "/store_design/edit?mode=edit&id=1001",
     "message": "保存成功"
   }
 }
@@ -391,13 +393,13 @@ Response：
 
 ### 7.2.5 使用模板
 
-`POST /api/store-design/templates/{templateId}/use`
+`POST /api/store-design/templates/{id}/use`
 
 用途：将指定模板设置为当前使用模板。
 
 ### 7.2.6 删除模板
 
-`DELETE /api/store-design/templates/{templateId}`
+`DELETE /api/store-design/templates/{id}`
 
 用途：删除自定义模板。
 
@@ -407,9 +409,99 @@ Response：
 
 用途：上传封面图、分享图、组件图片等资源。
 
-## 8. Python 后端设计
+## 8. 接口字段规范
 
-## 8.1 分层结构
+本项目不兼容旧前端和旧入口，但新接口字段命名直接沿用浏览器 Network 抓到的核心业务字段，避免前后端再做一层字段映射。Python 后端只负责数据校验、JSON 字符串解析、默认值补齐和类型规范化。
+
+经浏览器 Network 校验，旧页面主要涉及两个核心接口：
+
+- 模板首页：`GET /api/v1/theme?page=1&limit=50`
+- 装修详情：`GET /api/v1/diy/home?diy_id={id}`
+
+### 8.1 模板列表字段
+
+`GET /api/store-design/templates` 单条数据沿用以下字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 模板 ID，进入编辑页时作为 `diy_id` 查询详情。 |
+| `name` | 模板名称。 |
+| `type` | 模板类型，例如 `diy`。 |
+| `is_sel` | 是否使用中，`1` 表示使用中，`0` 表示未使用。 |
+| `created_at` | 创建时间。 |
+| `updated_at` | 更新时间。 |
+| `is_open_tabbar` | 是否开启底部导航。 |
+| `other_company_show` | 是否同步或展示到其他企业。 |
+| `pid` | 参考模板或复制来源，`0` 表示无来源。 |
+| `head_img` | 模板封面图。 |
+| `price` | 模板价格。 |
+| `theme_id` | 主题 ID，可为空。 |
+| `system_recommend_template` | 是否系统推荐模板。 |
+
+说明：列表接口不额外增加 `scene`、`status`、`templateId`、`coverUrl` 等别名字段；前端直接使用上述字段。
+
+### 8.2 装修详情字段
+
+`GET /api/store-design/templates/{id}` 或 `GET /api/store-design/diy-home?diy_id={id}` 返回装修详情，字段沿用以下结构：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 装修页面记录 ID。 |
+| `diy_id` | 模板 ID，对应模板列表中的 `id`。 |
+| `company_id` | 企业 ID。 |
+| `type` | 页面类型，例如 `home_page`、`project_page`。 |
+| `page_name` | 页面/模板名称。 |
+| `datas` | 组件树数组。后端必须把旧 JSON 字符串解析为数组后返回。 |
+| `other_company_show` | 是否同步或展示到其他企业。 |
+| `page_info` | 页面配置对象。后端必须把旧 JSON 字符串解析为对象后返回。 |
+| `member_level` | 可访问会员等级。为空时返回空字符串或空数组，需在接口文档中固定一种。 |
+| `level` | 会员等级数组。后端必须把旧 JSON 字符串解析为数组后返回。 |
+| `status` | 页面状态。 |
+| `created_at` | 创建时间。 |
+| `updated_at` | 更新时间。 |
+| `page_sort` | 页面端类型/页面分类。 |
+| `page_scene` | 页面场景。 |
+| `top_id` | 顶部菜单配置。 |
+| `foot_type` | 底部导航类型。 |
+| `foot_id` | 底部导航配置。 |
+| `page_type` | 页面适用端。 |
+
+说明：虽然列表接口和详情接口都存在 `id`，但语义不同；列表 `id` 是模板 ID，详情 `id` 是页面记录 ID，详情 `diy_id` 对应列表 `id`。前端必须按当前页面上下文区分。
+
+### 8.3 组件字段
+
+详情字段 `datas` 解析后为组件数组，组件字段沿用以下结构：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 组件实例 ID。 |
+| `component_key` | 组件唯一标识。 |
+| `component_title` | 组件显示名称。 |
+| `template_id` | 组件模板 ID。 |
+| `remote_data` | 组件业务配置和样式配置。 |
+| `tasks` | 嵌套子组件，可选。 |
+
+说明：不再额外转换为 `key/name/data/style/children`；React 编辑器内部也优先使用 `component_key/component_title/template_id/remote_data/tasks`，减少字段转换成本。
+
+### 8.4 仍需规范化的点
+
+1. `datas`、`page_info`、`level` 后端返回时必须是结构化数组/对象，不再返回 JSON 字符串。
+2. `member_level` 需要固定返回类型，推荐使用数组；如果为了贴近旧字段可保持字段名不变但值为数组。
+3. `top_id`、`foot_id` 需要固定空值形态，推荐空对象 `{}` 或 `null`，不要有时数组有时对象。
+4. `is_sel`、`is_open_tabbar`、`system_recommend_template` 保持数字 `0/1`，前端按数字判断。
+5. 保存接口也使用同一套字段名，避免保存前再做字段映射。
+
+### 8.5 新接口返回要求
+
+1. `/api/store-design/templates` 返回列表摘要字段，不包含完整组件树。
+2. `/api/store-design/templates/{id}` 返回完整编辑字段，包括 `page_info`、`datas`、`level`。
+3. 新前端直接依赖抓取到的字段名，不再引入别名字段。
+4. Python 后端负责 JSON 字符串解析、类型固定、默认值填充和 Pydantic 校验。
+5. 保存接口接收同名字段，后端可直接保存到数据库或转换为原业务存储结构。
+
+## 9. Python 后端设计
+
+## 9.1 分层结构
 
 ```text
 backend/
@@ -450,20 +542,23 @@ backend/
       errors.py
 ```
 
-## 8.2 推荐领域模型
+## 9.2 推荐领域模型
 
 ### store_design_template
 
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 模板 ID。 |
-| `title` | 模板名称。 |
-| `template_type` | 系统模板、自定义模板。 |
-| `scene` | 页面场景。 |
-| `cover_url` | 封面图。 |
+| `name` | 模板名称。 |
+| `type` | 模板类型。 |
+| `is_sel` | 是否当前使用。 |
+| `is_open_tabbar` | 是否开启底部导航。 |
+| `other_company_show` | 是否同步或展示到其他企业。 |
+| `pid` | 参考模板或复制来源。 |
+| `head_img` | 封面图。 |
 | `price` | 模板价格。 |
-| `status` | 使用状态。 |
-| `is_active` | 是否当前使用。 |
+| `theme_id` | 主题 ID。 |
+| `system_recommend_template` | 是否系统推荐模板。 |
 | `created_at` | 创建时间。 |
 | `updated_at` | 更新时间。 |
 
@@ -472,12 +567,21 @@ backend/
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 页面 ID。 |
-| `template_id` | 所属模板 ID。 |
-| `title` | 页面名称。 |
-| `scene` | 页面场景。 |
-| `settings_json` | 页面配置 JSON。 |
-| `components_json` | 组件树 JSON。 |
-| `schema_version` | 数据协议版本。 |
+| `diy_id` | 所属模板 ID。 |
+| `company_id` | 企业 ID。 |
+| `type` | 页面类型，例如 `home_page`。 |
+| `page_name` | 页面名称。 |
+| `datas` | 组件树 JSON/数组。 |
+| `page_info` | 页面配置 JSON/对象。 |
+| `member_level` | 可访问会员等级。 |
+| `level` | 会员等级列表。 |
+| `status` | 页面状态。 |
+| `page_sort` | 页面端类型/页面分类。 |
+| `page_scene` | 页面场景。 |
+| `top_id` | 顶部菜单配置。 |
+| `foot_type` | 底部导航类型。 |
+| `foot_id` | 底部导航配置。 |
+| `page_type` | 页面适用端。 |
 | `created_at` | 创建时间。 |
 | `updated_at` | 更新时间。 |
 
@@ -495,7 +599,7 @@ backend/
 | `enabled` | 是否启用。 |
 | `sort` | 排序。 |
 
-## 9. 数据校验与版本
+## 10. 数据校验与版本
 
 1. 装修页面数据增加 `schemaVersion`，首期为 `1`。
 2. 组件保存前校验 `key`、`data`、`style`、`children`。
@@ -503,7 +607,7 @@ backend/
 4. 前端加载未知组件时显示非法组件占位，并允许删除。
 5. 后续组件协议升级时通过 `schemaVersion` 做迁移。
 
-## 10. 前端工程结构
+## 11. 前端工程结构
 
 ```text
 store-design/
@@ -545,56 +649,72 @@ store-design/
       global.less
 ```
 
-## 11. 数据协议
+## 12. 数据协议
 
-## 11.1 模板列表项
+## 12.1 模板列表项
 
 ```ts
 interface StoreTemplate {
-  id: string
-  title: string
-  coverUrl?: string
-  templateType: 'system' | 'custom'
-  scene: 'home' | 'member' | 'custom'
-  status: 'active' | 'inactive' | 'disabled'
+  id: number | string
+  name: string
+  type: 'diy' | string
+  is_sel: 0 | 1
+  created_at?: string
+  updated_at?: string
+  is_open_tabbar?: 0 | 1
+  other_company_show?: 0 | 1
+  pid?: number | string
+  head_img?: string
   price?: string
-  updatedAt?: string
+  theme_id?: number | string | null
+  system_recommend_template?: 0 | 1
 }
 ```
 
-## 11.2 装修页面
+## 12.2 装修页面
 
 ```ts
 interface StoreDesignPage {
-  id?: string
-  templateId?: string
-  title: string
-  scene: 'home' | 'member' | 'custom'
-  settings: PageSettings
-  components: DesignComponent[]
-  schemaVersion: number
+  id: number | string
+  diy_id: number | string
+  company_id?: number | string
+  type: 'home_page' | 'project_page' | string
+  page_name: string
+  datas: DesignComponent[]
+  other_company_show?: 0 | 1
+  page_info: Record<string, unknown>
+  member_level?: number[] | string | null
+  level: MemberLevel[]
+  status?: number
+  created_at?: string
+  updated_at?: string
+  page_sort?: number | string
+  page_scene?: number | string
+  top_id?: Record<string, unknown> | null
+  foot_type?: number | string
+  foot_id?: Record<string, unknown> | null
+  page_type?: string | string[]
 }
 ```
 
-## 11.3 装修组件
+## 12.3 装修组件
 
 ```ts
 interface DesignComponent {
   id: string
-  key: string
-  name: string
-  templateId?: string
-  data: Record<string, unknown>
-  style: Record<string, unknown>
-  children?: DesignComponent[]
+  component_key: string
+  component_title: string
+  template_id: number | string
+  remote_data: Record<string, unknown>
+  tasks?: DesignComponent[]
   invalid?: boolean
   invalidReason?: string
 }
 ```
 
-## 12. 交互流程
+## 13. 交互流程
 
-## 12.1 首页加载流程
+## 13.1 首页加载流程
 
 ```text
 用户进入 /store_design/home
@@ -604,17 +724,17 @@ interface DesignComponent {
   -> React 渲染模板卡片列表
 ```
 
-## 12.2 编辑页加载流程
+## 13.2 编辑页加载流程
 
 ```text
-用户进入 /store_design/edit?mode=edit&templateId=xxx
+用户进入 /store_design/edit?mode=edit&id=xxx
   -> React 并行请求模板详情和组件元数据
   -> Python Service 查询页面、模板、组件配置
   -> Python 返回标准装修协议
   -> React 初始化编辑器状态
 ```
 
-## 12.3 保存流程
+## 13.3 保存流程
 
 ```text
 用户点击保存
@@ -622,11 +742,11 @@ interface DesignComponent {
   -> React 调用 POST /api/store-design/pages/save
   -> Python Service 校验 payload
   -> Python 保存模板、页面配置和组件树
-  -> 保存成功后返回 templateId 和 targetUrl
+  -> 保存成功后返回 id、diy_id 和 url
   -> React 提示成功并跳转或停留编辑
 ```
 
-## 13. 验收标准
+## 14. 验收标准
 
 ### 13.1 路由验收
 
@@ -664,9 +784,9 @@ interface DesignComponent {
 5. 模板、页面、组件元数据具备基础测试覆盖。
 6. 暂无鉴权时，仍预留租户、操作者和审计扩展字段。
 
-## 14. 容器化与自动部署方案
+## 15. 容器化与自动部署方案
 
-### 14.1 Docker 容器化目标
+### 15.1 Docker 容器化目标
 
 1. React 子应用、Python 后端均通过 Docker 镜像交付。
 2. 本地、测试、生产环境使用一致的容器运行方式。
@@ -674,7 +794,7 @@ interface DesignComponent {
 4. 支持一键回滚到上一版本镜像。
 5. 所有敏感配置通过环境变量或 GitHub Secrets 注入，不写入代码仓库。
 
-### 14.2 镜像规划
+### 15.2 镜像规划
 
 | 服务 | 镜像 | 说明 |
 | --- | --- | --- |
@@ -682,7 +802,7 @@ interface DesignComponent {
 | Python 后端 | `store-design-api` | FastAPI + Uvicorn/Gunicorn 服务。 |
 | Nginx 网关 | `store-design-nginx` 可选 | 统一代理前端静态资源和后端 API。 |
 
-### 14.3 推荐目录结构
+### 15.3 推荐目录结构
 
 ```text
 store_design/
@@ -701,7 +821,7 @@ store_design/
       deploy.yml
 ```
 
-### 14.4 Dockerfile 建议
+### 15.4 Dockerfile 建议
 
 React 子应用镜像：
 
@@ -733,7 +853,7 @@ EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-### 14.5 docker-compose 部署建议
+### 15.5 docker-compose 部署建议
 
 ```yaml
 services:
@@ -754,7 +874,7 @@ services:
       - "8000:8000"
 ```
 
-### 14.6 测试环境与生产环境区分
+### 15.6 测试环境与生产环境区分
 
 | 项目 | 测试环境 | 生产环境 |
 | --- | --- | --- |
@@ -769,7 +889,7 @@ services:
 | 容器项目名 | `store_design_test` | `store_design_prod` |
 | 部署策略 | 快速验证，允许频繁部署 | 稳定发布，部署前备份版本 |
 
-### 14.7 GitHub Actions 自动部署流程
+### 15.7 GitHub Actions 自动部署流程
 
 触发方式：
 
@@ -797,7 +917,7 @@ services:
   -> 部署成功/失败通知
 ```
 
-### 14.8 GitHub Secrets
+### 15.8 GitHub Secrets
 
 建议使用 GitHub Environments 分别维护 `test` 和 `production` 的 Secrets，避免测试环境和生产环境配置混用。
 
@@ -812,7 +932,7 @@ services:
 | `ENV_FILE` | 测试 `.env` 内容 | 生产 `.env` 内容 | 部署时写入服务器的环境变量。 |
 | `HEALTHCHECK_URL` | 测试健康检查地址 | 生产健康检查地址 | 部署后校验服务状态。 |
 
-### 14.9 GitHub Actions 示例
+### 15.9 GitHub Actions 示例
 
 ```yaml
 name: deploy-store-design
@@ -908,7 +1028,7 @@ jobs:
         run: curl -fsS ${{ secrets.HEALTHCHECK_URL }}
 ```
 
-### 14.10 远程服务器要求
+### 15.10 远程服务器要求
 
 1. 已安装 Docker Engine 和 Docker Compose Plugin。
 2. 测试环境部署目录建议为 `/opt/store_design_test`。
@@ -919,7 +1039,7 @@ jobs:
 7. 生产环境建议由统一 Nginx 或网关反代到容器服务。
 8. 同一台服务器部署测试和生产时，必须使用不同 compose project name，避免容器名、网络名、volume 冲突。
 
-### 14.11 健康检查与回滚
+### 15.11 健康检查与回滚
 
 健康检查：
 
@@ -937,7 +1057,7 @@ jobs:
 5. 执行 `docker compose --project-name <env_project> pull && docker compose --project-name <env_project> up -d`。
 6. 回滚后再次执行对应环境健康检查。
 
-### 14.12 部署验收标准
+### 15.12 部署验收标准
 
 1. GitHub Actions 能在测试分支提交后自动构建并部署测试环境。
 2. GitHub Actions 能在生产分支或 release tag 下部署生产环境。
@@ -950,7 +1070,7 @@ jobs:
 9. 对应环境后端 `/health` 可访问。
 10. 支持通过指定旧 `IMAGE_TAG` 完成测试或生产环境回滚。
 
-## 15. 风险与应对
+## 16. 风险与应对
 
 | 风险 | 影响 | 应对 |
 | --- | --- | --- |
@@ -965,7 +1085,7 @@ jobs:
 | 环境变量泄露 | 安全风险 | 使用 GitHub Secrets 和服务器 `.env`，禁止提交敏感配置。 |
 | 测试和生产环境混用 | 数据污染或误发布 | 使用 GitHub Environments、独立 Secrets、独立部署目录和不同镜像 tag。 |
 
-## 16. 里程碑建议
+## 17. 里程碑建议
 
 | 阶段 | 周期 | 产出 |
 | --- | --- | --- |
@@ -978,7 +1098,7 @@ jobs:
 | 容器化与 CI/CD | 3-5 天 | Dockerfile、docker-compose、GitHub Actions 自动部署。 |
 | 联调验收 | 1 周 | 前后端联调、主应用接入、自动部署验收报告。 |
 
-## 17. 待确认问题
+## 18. 待确认问题
 
 1. Python 后端是否新建独立服务，还是并入现有后端工程？
 2. 数据库是否沿用现有 MySQL 实例，还是新建库表？
