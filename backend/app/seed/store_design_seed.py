@@ -21,7 +21,7 @@ COMPONENT_SEED = [
                     "key": "datas",
                     "title": "数据配置",
                     "fields": [
-                        {"key": "search_title", "label": "搜索提示文案", "type": "text", "default": "店内搜索"}
+                        {"key": "search_title", "label": "搜索提示文案", "type": "text", "default": "店内搜索", "required": True}
                     ],
                 }
             ]

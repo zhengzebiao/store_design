@@ -136,3 +136,90 @@ def test_delete_template(client: TestClient):
     assert response.status_code == 200
     detail_response = client.get(f"/api/store-design/templates/{diy_id}?company_id=3")
     assert detail_response.status_code == 404
+
+
+def test_save_page_rejects_unknown_component(client: TestClient):
+    response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "create",
+            "id": "",
+            "diy_id": "",
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "未知组件页面",
+            "datas": [
+                {
+                    "id": "unknown_1",
+                    "component_key": "UNKNOWN",
+                    "component_title": "未知组件",
+                    "template_id": 1,
+                    "remote_data": {},
+                }
+            ],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "COMPONENT_NOT_FOUND"
+
+
+def test_save_page_rejects_missing_required_schema_field(client: TestClient):
+    response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "create",
+            "id": "",
+            "diy_id": "",
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "缺少必填字段页面",
+            "datas": [
+                {
+                    "id": "search_1",
+                    "component_key": "U_search",
+                    "component_title": "搜索框",
+                    "template_id": 6,
+                    "remote_data": {},
+                }
+            ],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "COMPONENT_SCHEMA_INVALID"
+
+
+def test_save_page_accepts_valid_component(client: TestClient):
+    response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "create",
+            "id": "",
+            "diy_id": "",
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "合法组件页面",
+            "datas": [
+                {
+                    "id": "search_1",
+                    "component_key": "U_search",
+                    "component_title": "搜索框",
+                    "template_id": 6,
+                    "remote_data": {"search_title": "店内搜索"},
+                }
+            ],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["success"] is True
