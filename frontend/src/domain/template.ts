@@ -17,6 +17,7 @@ export type StoreTemplate = {
 export type TemplateListParams = {
   page: number
   limit: number
+  company_id?: number | string
   keyword?: string
   type?: string
   is_sel?: 0 | 1 | ''

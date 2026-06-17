@@ -1,24 +1,43 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { App, Button, Card, Col, Empty, Form, Input, Row, Select, Space, Spin, Tag, Typography } from 'antd'
-import { getTemplates } from '../../api/templates'
-import type { TemplateListParams } from '../../domain/template'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { App, Button, Card, Col, Empty, Form, Input, Pagination, Popconfirm, Row, Select, Space, Spin, Tag, Typography } from 'antd'
+import { deleteTemplate, getTemplates, useTemplate } from '../../api/templates'
+import type { StoreTemplate, TemplateListParams } from '../../domain/template'
 import './home.less'
 
+const COMPANY_ID = 3
 const DEFAULT_PARAMS: TemplateListParams = {
   page: 1,
   limit: 20,
+  company_id: COMPANY_ID,
   type: 'diy',
 }
 
 export default function StoreDesignHome() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { message } = App.useApp()
   const [params, setParams] = useState(DEFAULT_PARAMS)
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['templates', params],
     queryFn: () => getTemplates(params),
+  })
+
+  const refreshTemplates = () => queryClient.invalidateQueries({ queryKey: ['templates'] })
+  const useTemplateMutation = useMutation({
+    mutationFn: (template: StoreTemplate) => useTemplate(template.id, COMPANY_ID),
+    onSuccess: () => {
+      message.success('使用模板成功')
+      refreshTemplates()
+    },
+  })
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (template: StoreTemplate) => deleteTemplate(template.id, COMPANY_ID),
+    onSuccess: () => {
+      message.success('删除模板成功')
+      refreshTemplates()
+    },
   })
 
   const templates = data?.data || []
@@ -78,6 +97,31 @@ export default function StoreDesignHome() {
               actions={[
                 <Button type="link" onClick={() => navigate(`/edit?mode=edit&id=${template.id}`)}>编辑</Button>,
                 <Button type="link" onClick={() => navigate(`/edit?mode=copy&id=${template.id}`)}>复制</Button>,
+                <Button
+                  type="link"
+                  disabled={template.is_sel === 1}
+                  loading={useTemplateMutation.isPending && useTemplateMutation.variables?.id === template.id}
+                  onClick={() => useTemplateMutation.mutate(template)}
+                >
+                  使用模板
+                </Button>,
+                <Popconfirm
+                  title="确认删除该模板？"
+                  description="删除后将无法在列表中继续编辑。"
+                  okText="删除"
+                  cancelText="取消"
+                  disabled={template.system_recommend_template === 1}
+                  onConfirm={() => deleteTemplateMutation.mutate(template)}
+                >
+                  <Button
+                    danger
+                    type="link"
+                    disabled={template.system_recommend_template === 1}
+                    loading={deleteTemplateMutation.isPending && deleteTemplateMutation.variables?.id === template.id}
+                  >
+                    删除
+                  </Button>
+                </Popconfirm>,
               ]}
             >
               <Card.Meta title={template.name} description={`ID: ${template.id}`} />
@@ -91,10 +135,16 @@ export default function StoreDesignHome() {
         ))}
       </Row>
 
-      {data && data.total > data.limit && (
-        <Button className="store-home__more" onClick={() => message.info('分页组件将在下一阶段接入')}>
-          共 {data.total} 条
-        </Button>
+      {data && data.total > 0 && (
+        <Pagination
+          className="store-home__pagination"
+          current={data.current_page}
+          pageSize={data.limit}
+          total={data.total}
+          showSizeChanger
+          showTotal={(total) => `共 ${total} 条`}
+          onChange={(page, limit) => setParams((current) => ({ ...current, page, limit }))}
+        />
       )}
     </main>
   )
