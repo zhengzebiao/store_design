@@ -223,3 +223,118 @@ def test_save_page_accepts_valid_component(client: TestClient):
     )
     assert response.status_code == 200
     assert response.json()["success"] is True
+
+
+def test_edit_page_updates_existing_template(client: TestClient):
+    create_response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "create",
+            "id": "",
+            "diy_id": "",
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "编辑前名称",
+            "datas": [],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    diy_id = create_response.json()["data"]["diy_id"]
+    page_id = create_response.json()["data"]["id"]
+
+    edit_response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "edit",
+            "id": page_id,
+            "diy_id": diy_id,
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "编辑后名称",
+            "datas": [],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    assert edit_response.status_code == 200
+    detail_response = client.get(f"/api/store-design/templates/{diy_id}?company_id=3")
+    assert detail_response.json()["data"]["page_name"] == "编辑后名称"
+
+
+def test_copy_page_creates_new_template_without_overwriting_source(client: TestClient):
+    source = client.get("/api/store-design/templates?company_id=3").json()["data"][0]
+    source_detail = client.get(f"/api/store-design/templates/{source['id']}?company_id=3").json()["data"]
+
+    copy_response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "copy",
+            "id": "",
+            "diy_id": source["id"],
+            "route_id": source["id"],
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "复制出的模板",
+            "datas": [],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    assert copy_response.status_code == 200
+    new_diy_id = copy_response.json()["data"]["diy_id"]
+    assert str(new_diy_id) != str(source["id"])
+
+    source_after = client.get(f"/api/store-design/templates/{source['id']}?company_id=3").json()["data"]
+    copied = client.get(f"/api/store-design/templates/{new_diy_id}?company_id=3").json()["data"]
+    assert source_after["page_name"] == source_detail["page_name"]
+    assert copied["page_name"] == "复制出的模板"
+
+
+def test_edit_missing_page_returns_page_not_found(client: TestClient):
+    response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "edit",
+            "id": "9999",
+            "diy_id": "9999",
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "不存在页面",
+            "datas": [],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "PAGE_NOT_FOUND"
+
+
+def test_copy_missing_source_returns_page_not_found(client: TestClient):
+    response = client.post(
+        "/api/store-design/pages/save",
+        json={
+            "mode": "copy",
+            "id": "",
+            "diy_id": "9999",
+            "route_id": "9999",
+            "company_id": 3,
+            "type": "home_page",
+            "page_name": "不存在来源",
+            "datas": [],
+            "page_info": {},
+            "member_level": [],
+            "level": [],
+            "status": 1,
+        },
+    )
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "PAGE_NOT_FOUND"

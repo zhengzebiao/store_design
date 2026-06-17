@@ -19,6 +19,20 @@ class PageRepository:
         self.db = db
 
     def save(self, payload: SavePagePayload) -> dict:
+        if payload.mode == "copy":
+            source_diy_id = int(payload.route_id or payload.diy_id or 0)
+            if not source_diy_id:
+                raise BusinessError("INVALID_PARAMS", "复制模式缺少来源模板 ID")
+            source_page = self.db.scalar(
+                select(StoreDesignPage).where(
+                    StoreDesignPage.diy_id == source_diy_id,
+                    StoreDesignPage.company_id == int(payload.company_id),
+                    StoreDesignPage.deleted_at.is_(None),
+                )
+            )
+            if not source_page:
+                raise BusinessError("PAGE_NOT_FOUND", "复制来源页面不存在", status_code=404)
+
         if payload.mode in {"create", "copy"}:
             template = StoreDesignTemplate(
                 company_id=int(payload.company_id),
@@ -60,6 +74,9 @@ class PageRepository:
             return page_to_dict(page)
 
         diy_id = int(payload.diy_id or payload.route_id or 0)
+        if not diy_id:
+            raise BusinessError("INVALID_PARAMS", "编辑模式缺少模板 ID")
+
         page = self.db.scalar(
             select(StoreDesignPage).where(
                 StoreDesignPage.diy_id == diy_id,

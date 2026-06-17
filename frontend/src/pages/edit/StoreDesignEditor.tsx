@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { App, Button, Card, Collapse, Empty, Form, Input, InputNumber, Layout, List, Radio, Select, Space, Spin, Switch, Typography } from 'antd'
+import { Alert, App, Button, Card, Collapse, Empty, Form, Input, InputNumber, Layout, List, Radio, Select, Space, Spin, Switch, Typography } from 'antd'
 import { getComponents } from '../../api/components'
 import { getTemplateDetail } from '../../api/templates'
 import { savePage } from '../../api/pages'
@@ -117,7 +117,7 @@ export default function StoreDesignEditor() {
         </Space>
         <Space>
           <Button onClick={() => message.info('预览将在下一阶段完善')}>预览</Button>
-          <Button type="primary" loading={saveMutation.isPending} onClick={handleSave}>保存</Button>
+          <Button type="primary" loading={saveMutation.isPending} onClick={handleSave}>{mode === 'copy' ? '保存为新模板' : '保存'}</Button>
         </Space>
       </Layout.Header>
 
@@ -136,6 +136,15 @@ export default function StoreDesignEditor() {
         </Layout.Sider>
 
         <Layout.Content className="store-editor__canvas-wrap">
+          {mode === 'copy' && (
+            <Alert
+              className="store-editor__mode-alert"
+              type="info"
+              showIcon
+              message="复制模式"
+              description="保存时会生成新模板，不会覆盖原模板。"
+            />
+          )}
           <div className="store-editor__canvas">
             {detailQuery.isLoading && <Spin />}
             {!detailQuery.isLoading && page.datas.length === 0 && <Empty description="从左侧添加组件" />}
