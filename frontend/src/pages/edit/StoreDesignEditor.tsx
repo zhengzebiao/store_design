@@ -139,17 +139,25 @@ export default function StoreDesignEditor() {
           <div className="store-editor__canvas">
             {detailQuery.isLoading && <Spin />}
             {!detailQuery.isLoading && page.datas.length === 0 && <Empty description="从左侧添加组件" />}
-            {page.datas.map((component) => (
+            {page.datas.map((component, index) => (
               <Card
                 key={component.id}
                 size="small"
                 className={component.id === selectedComponentId ? 'store-editor__component is-selected' : 'store-editor__component'}
                 onClick={() => store.selectComponent(component.id)}
               >
-                <Space className="store-editor__component-title">
-                  <Typography.Text strong>{component.component_title}</Typography.Text>
-                  <Typography.Text type="secondary">{component.component_key}</Typography.Text>
-                </Space>
+                <div className="store-editor__component-title">
+                  <Space direction="vertical" size={0}>
+                    <Typography.Text strong>{component.component_title}</Typography.Text>
+                    <Typography.Text type="secondary">{component.component_key}</Typography.Text>
+                  </Space>
+                  <Space size={4} onClick={(event) => event.stopPropagation()}>
+                    <Button size="small" disabled={index === 0} onClick={() => store.moveComponent(component.id, 'up')}>上移</Button>
+                    <Button size="small" disabled={index === page.datas.length - 1} onClick={() => store.moveComponent(component.id, 'down')}>下移</Button>
+                    <Button size="small" onClick={() => store.copyComponent(component.id)}>复制</Button>
+                    <Button size="small" danger onClick={() => store.removeComponent(component.id)}>删除</Button>
+                  </Space>
+                </div>
               </Card>
             ))}
           </div>
