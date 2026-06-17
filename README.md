@@ -19,6 +19,8 @@ cd backend
 python -m venv .venv
 source .venv/Scripts/activate
 pip install -r requirements.txt
+alembic upgrade head
+py scripts/seed_store_design.py
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 

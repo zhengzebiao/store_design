@@ -1,11 +1,13 @@
+from sqlalchemy.orm import Session
+
 from app.core.errors import BusinessError
 from app.repositories.page_repository import PageRepository
 from app.schemas.page import SavePagePayload
 
 
 class PageService:
-    def __init__(self) -> None:
-        self.repository = PageRepository()
+    def __init__(self, db: Session) -> None:
+        self.repository = PageRepository(db)
 
     def save_page(self, payload: SavePagePayload) -> dict:
         if not payload.company_id:

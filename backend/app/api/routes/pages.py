@@ -1,16 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from app.core.database import get_db
 from app.core.response import success
 from app.schemas.page import SavePagePayload, SavePageResult
 from app.services.page_service import PageService
 
 router = APIRouter()
-service = PageService()
 
 
 @router.post("/pages/save")
-async def save_page(payload: SavePagePayload):
-    page = service.save_page(payload)
+async def save_page(payload: SavePagePayload, db: Session = Depends(get_db)):
+    page = PageService(db).save_page(payload)
     result = SavePageResult(
         id=str(page["id"]),
         diy_id=str(page["diy_id"]),

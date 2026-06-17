@@ -22,6 +22,7 @@ class StoreTemplate(BaseModel):
 class TemplateListQuery(BaseModel):
     page: int = 1
     limit: int = 20
+    company_id: int | str | None = None
     keyword: str | None = None
     type: str | None = "diy"
     is_sel: int | None = None

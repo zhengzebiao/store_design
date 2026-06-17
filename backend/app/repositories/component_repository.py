@@ -1,10 +1,18 @@
-from app.repositories.memory_store import COMPONENTS, clone
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.component import StoreDesignComponentMeta
+from app.repositories.serializers import component_to_dict
 
 
 class ComponentRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
     def list_enabled(self) -> list[dict]:
-        return sorted(
-            [item for item in clone(COMPONENTS) if item.get("enabled") == 1],
-            key=lambda item: item.get("sort", 0),
-            reverse=True,
-        )
+        items = self.db.scalars(
+            select(StoreDesignComponentMeta)
+            .where(StoreDesignComponentMeta.enabled == 1)
+            .order_by(StoreDesignComponentMeta.sort.desc(), StoreDesignComponentMeta.id.asc())
+        ).all()
+        return [component_to_dict(item) for item in items]
