@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { App, Button, Card, Col, Empty, Form, Input, Pagination, Popconfirm, Row, Select, Space, Spin, Tag, Typography } from 'antd'
+import { getErrorMessage } from '../../api/error'
 import { deleteTemplate, getTemplates, useTemplate } from '../../api/templates'
 import type { StoreTemplate, TemplateListParams } from '../../domain/template'
 import './home.less'
@@ -31,12 +32,18 @@ export default function StoreDesignHome() {
       message.success('使用模板成功')
       refreshTemplates()
     },
+    onError: (mutationError) => {
+      message.error(getErrorMessage(mutationError, '使用模板失败'))
+    },
   })
   const deleteTemplateMutation = useMutation({
     mutationFn: (template: StoreTemplate) => deleteTemplate(template.id, COMPANY_ID),
     onSuccess: () => {
       message.success('删除模板成功')
       refreshTemplates()
+    },
+    onError: (mutationError) => {
+      message.error(getErrorMessage(mutationError, '删除模板失败'))
     },
   })
 

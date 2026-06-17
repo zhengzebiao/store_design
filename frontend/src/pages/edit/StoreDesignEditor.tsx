@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Alert, App, Button, Card, Collapse, Empty, Form, Input, InputNumber, Layout, List, Radio, Select, Space, Spin, Switch, Typography } from 'antd'
 import { getComponents } from '../../api/components'
+import { getErrorMessage } from '../../api/error'
 import { getTemplateDetail } from '../../api/templates'
 import { savePage } from '../../api/pages'
 import type { ComponentSchemaField } from '../../domain/component'
@@ -107,6 +108,9 @@ export default function StoreDesignEditor() {
     onSuccess: (result) => {
       message.success(result.message)
       navigate(`/edit?mode=edit&id=${result.diy_id}`, { replace: true })
+    },
+    onError: (mutationError) => {
+      message.error(getErrorMessage(mutationError, '保存失败'))
     },
   })
 
