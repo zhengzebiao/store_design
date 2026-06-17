@@ -35,7 +35,10 @@ function render(props: MicroAppProps = {}) {
       <ConfigProvider locale={zhCN}>
         <AntdApp>
           <QueryClientProvider client={queryClient}>
-            <BrowserRouter basename={getRuntimeConfig().basename}>
+            <BrowserRouter
+              basename={getRuntimeConfig().basename}
+              future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+            >
               <App />
             </BrowserRouter>
           </QueryClientProvider>
