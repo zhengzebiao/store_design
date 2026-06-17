@@ -20,6 +20,7 @@ type EditorState = {
   removeComponent: (id: string) => void
   copyComponent: (id: string) => void
   moveComponent: (id: string, direction: MoveDirection) => void
+  reorderComponent: (activeId: string, overId: string) => void
   updatePageName: (pageName: string) => void
   updateSelectedTitle: (title: string) => void
   updateSelectedRemoteData: (key: string, value: unknown) => void
@@ -80,6 +81,15 @@ export const useEditorStore = create<EditorState>()(
       const [component] = state.page.datas.splice(index, 1)
       state.page.datas.splice(nextIndex, 0, component)
       state.selectedComponentId = id
+    }),
+    reorderComponent: (activeId, overId) => set((state) => {
+      if (activeId === overId) return
+      const activeIndex = state.page.datas.findIndex((item) => item.id === activeId)
+      const overIndex = state.page.datas.findIndex((item) => item.id === overId)
+      if (activeIndex < 0 || overIndex < 0) return
+      const [component] = state.page.datas.splice(activeIndex, 1)
+      state.page.datas.splice(overIndex, 0, component)
+      state.selectedComponentId = activeId
     }),
     updatePageName: (pageName) => set((state) => { state.page.page_name = pageName }),
     updateSelectedTitle: (title) => set((state) => {

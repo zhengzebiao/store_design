@@ -58,6 +58,20 @@
   border-color: #1677ff;
 }
 
+.store-editor__component.is-dragging {
+  z-index: 2;
+  opacity: 0.72;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 18%);
+}
+
+.store-editor__drag-handle {
+  cursor: grab;
+}
+
+.store-editor__drag-handle:active {
+  cursor: grabbing;
+}
+
 .store-editor__component-title {
   display: flex;
   gap: 8px;

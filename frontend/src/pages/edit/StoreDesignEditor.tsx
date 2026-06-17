@@ -1,3 +1,6 @@
+import { CSS } from '@dnd-kit/utilities'
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -43,6 +46,47 @@ function renderField(field: ComponentSchemaField, value: unknown, onChange: (val
   }
 }
 
+type SortableCanvasItemProps = {
+  id: string
+  title: string
+  componentKey: string
+  selected: boolean
+  first: boolean
+  last: boolean
+  onSelect: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onCopy: () => void
+  onDelete: () => void
+}
+
+function SortableCanvasItem({ id, title, componentKey, selected, first, last, onSelect, onMoveUp, onMoveDown, onCopy, onDelete }: SortableCanvasItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <Card
+      ref={setNodeRef}
+      size="small"
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`${selected ? 'store-editor__component is-selected' : 'store-editor__component'}${isDragging ? ' is-dragging' : ''}`}
+      onClick={onSelect}
+    >
+      <div className="store-editor__component-title">
+        <Space direction="vertical" size={0}>
+          <Typography.Text strong>{title}</Typography.Text>
+          <Typography.Text type="secondary">{componentKey}</Typography.Text>
+        </Space>
+        <Space size={4} onClick={(event) => event.stopPropagation()}>
+          <Button size="small" className="store-editor__drag-handle" {...attributes} {...listeners}>拖拽</Button>
+          <Button size="small" disabled={first} onClick={onMoveUp}>上移</Button>
+          <Button size="small" disabled={last} onClick={onMoveDown}>下移</Button>
+          <Button size="small" onClick={onCopy}>复制</Button>
+          <Button size="small" danger onClick={onDelete}>删除</Button>
+        </Space>
+      </div>
+    </Card>
+  )
+}
+
 export default function StoreDesignEditor() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -86,6 +130,13 @@ export default function StoreDesignEditor() {
   const selected = page.datas.find((item) => item.id === selectedComponentId)
   const selectedMeta = componentsQuery.data?.find((item) => item.component_key === selected?.component_key)
   const schemaGroups = selectedMeta?.schema_json?.groups || []
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over) return
+    store.reorderComponent(String(active.id), String(over.id))
+  }
 
   const handleSave = () => {
     if (!page.page_name.trim()) {
@@ -148,27 +199,26 @@ export default function StoreDesignEditor() {
           <div className="store-editor__canvas">
             {detailQuery.isLoading && <Spin />}
             {!detailQuery.isLoading && page.datas.length === 0 && <Empty description="从左侧添加组件" />}
-            {page.datas.map((component, index) => (
-              <Card
-                key={component.id}
-                size="small"
-                className={component.id === selectedComponentId ? 'store-editor__component is-selected' : 'store-editor__component'}
-                onClick={() => store.selectComponent(component.id)}
-              >
-                <div className="store-editor__component-title">
-                  <Space direction="vertical" size={0}>
-                    <Typography.Text strong>{component.component_title}</Typography.Text>
-                    <Typography.Text type="secondary">{component.component_key}</Typography.Text>
-                  </Space>
-                  <Space size={4} onClick={(event) => event.stopPropagation()}>
-                    <Button size="small" disabled={index === 0} onClick={() => store.moveComponent(component.id, 'up')}>上移</Button>
-                    <Button size="small" disabled={index === page.datas.length - 1} onClick={() => store.moveComponent(component.id, 'down')}>下移</Button>
-                    <Button size="small" onClick={() => store.copyComponent(component.id)}>复制</Button>
-                    <Button size="small" danger onClick={() => store.removeComponent(component.id)}>删除</Button>
-                  </Space>
-                </div>
-              </Card>
-            ))}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={page.datas.map((component) => component.id)} strategy={verticalListSortingStrategy}>
+                {page.datas.map((component, index) => (
+                  <SortableCanvasItem
+                    key={component.id}
+                    id={component.id}
+                    title={component.component_title}
+                    componentKey={component.component_key}
+                    selected={component.id === selectedComponentId}
+                    first={index === 0}
+                    last={index === page.datas.length - 1}
+                    onSelect={() => store.selectComponent(component.id)}
+                    onMoveUp={() => store.moveComponent(component.id, 'up')}
+                    onMoveDown={() => store.moveComponent(component.id, 'down')}
+                    onCopy={() => store.copyComponent(component.id)}
+                    onDelete={() => store.removeComponent(component.id)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
         </Layout.Content>
 
