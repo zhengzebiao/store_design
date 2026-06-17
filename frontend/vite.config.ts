@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  base: '/micro-apps/store_design/',
+export default defineConfig(({ command }) => ({
+  base: command === 'serve' ? '/store_design/' : '/micro-apps/store_design/',
   plugins: [react()],
   server: {
     port: 5174,
@@ -18,4 +18,4 @@ export default defineConfig({
     target: 'es2018',
     outDir: 'dist',
   },
-})
+}))
