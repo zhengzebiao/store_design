@@ -5,6 +5,28 @@ export type ComponentTemplate = {
   name_en?: string
 }
 
+export type ComponentSchemaField = {
+  key: string
+  label: string
+  type: 'text' | 'textarea' | 'number' | 'color' | 'switch' | 'select' | 'radio' | 'checkbox' | 'slider' | 'goods' | 'link' | 'list' | 'custom' | string
+  default?: unknown
+  required?: boolean
+  tips?: string
+  options?: Array<{ label: string; value: string | number | boolean }>
+  min?: number
+  max?: number
+}
+
+export type ComponentSchemaGroup = {
+  key: string
+  title: string
+  fields: ComponentSchemaField[]
+}
+
+export type ComponentSchema = {
+  groups?: ComponentSchemaGroup[]
+}
+
 export type ComponentMeta = {
   id: number | string
   component_key: string
@@ -13,7 +35,7 @@ export type ComponentMeta = {
   icon?: string
   tpl_id?: number | string
   templates: ComponentTemplate[]
-  schema_json?: Record<string, unknown>
+  schema_json?: ComponentSchema
   default_data?: Record<string, unknown>
   enabled?: 0 | 1
   sort?: number

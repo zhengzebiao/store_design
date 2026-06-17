@@ -19,6 +19,22 @@ type EditorState = {
   removeComponent: (id: string) => void
   updatePageName: (pageName: string) => void
   updateSelectedTitle: (title: string) => void
+  updateSelectedRemoteData: (key: string, value: unknown) => void
+}
+
+function setByPath(target: Record<string, unknown>, path: string, value: unknown) {
+  const keys = path.split('.').filter(Boolean)
+  if (keys.length === 0) return
+
+  let current = target
+  keys.slice(0, -1).forEach((key) => {
+    const next = current[key]
+    if (!next || typeof next !== 'object' || Array.isArray(next)) {
+      current[key] = {}
+    }
+    current = current[key] as Record<string, unknown>
+  })
+  current[keys[keys.length - 1]] = value
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -42,7 +58,12 @@ export const useEditorStore = create<EditorState>()(
       const selected = state.page.datas.find((item) => item.id === state.selectedComponentId)
       if (selected) {
         selected.component_title = title
-        selected.remote_data = { ...selected.remote_data, title }
+      }
+    }),
+    updateSelectedRemoteData: (key, value) => set((state) => {
+      const selected = state.page.datas.find((item) => item.id === state.selectedComponentId)
+      if (selected) {
+        setByPath(selected.remote_data, key, value)
       }
     }),
   })),
