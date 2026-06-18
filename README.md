@@ -45,3 +45,11 @@ npm run dev
 cp .env.example .env
 docker compose -f deploy/docker-compose.yml up --build
 ```
+
+Compose 启动时后端容器默认执行 `alembic upgrade head` 和 seed 数据初始化，可通过 `.env` 设置 `RUN_MIGRATIONS=0` 或 `RUN_SEED=0` 关闭。
+
+访问:
+
+- 容器前端: http://localhost:8080/store_design/home
+- 容器后端: http://localhost:8000/health
+

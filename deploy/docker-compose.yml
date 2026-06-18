@@ -4,12 +4,13 @@ services:
       context: ../frontend
     restart: unless-stopped
     environment:
-      API_BASE_URL: http://localhost:8000
+      API_BASE_URL: /api
       BASENAME: /store_design
     ports:
       - "8080:80"
     depends_on:
-      - store-design-api
+      store-design-api:
+        condition: service_started
 
   store-design-api:
     build:
@@ -19,10 +20,13 @@ services:
       - ../.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://store_design:store_design@store-design-postgres:5432/store_design}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
+      RUN_SEED: ${RUN_SEED:-1}
     ports:
       - "8000:8000"
     depends_on:
-      - store-design-postgres
+      store-design-postgres:
+        condition: service_healthy
 
   store-design-postgres:
     image: postgres:16-alpine
@@ -35,6 +39,11 @@ services:
       - store_design_pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   store_design_pgdata:
