@@ -2,30 +2,28 @@ version: "2.4"
 
 services:
   store-design-web:
-    build:
-      context: ../frontend
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
     restart: unless-stopped
     environment:
-      API_BASE_URL: /api
-      BASENAME: /store_design
+      API_BASE_URL: ${API_BASE_URL:-/api}
+      BASENAME: ${BASENAME:-/store_design}
     ports:
-      - "8080:80"
+      - "${WEB_PORT:-8080}:80"
     depends_on:
       store-design-api:
         condition: service_started
 
   store-design-api:
-    build:
-      context: ../backend
+    image: ${API_IMAGE:?API_IMAGE is required}
     restart: unless-stopped
     env_file:
-      - ../.env
+      - ./.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://store_design:store_design@store-design-postgres:5432/store_design}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
       RUN_SEED: ${RUN_SEED:-1}
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       store-design-postgres:
         condition: service_healthy
@@ -40,7 +38,7 @@ services:
     volumes:
       - store_design_pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s

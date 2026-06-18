@@ -1329,8 +1329,8 @@ volumes:
   -> 推送镜像到 GHCR 或私有镜像仓库
   -> SSH 登录对应环境远程服务器
   -> 写入对应环境 IMAGE_TAG 和 .env
-  -> docker compose --project-name 对应环境 pull
-  -> docker compose --project-name 对应环境 up -d
+  -> docker-compose --project-name 对应环境 pull
+  -> docker-compose --project-name 对应环境 up -d
   -> 执行对应环境健康检查
   -> 部署成功/失败通知
 ```
@@ -1457,8 +1457,8 @@ jobs:
             cd $DEPLOY_DIR
             printf '%s' '${{ secrets.ENV_FILE }}' > .env
             export IMAGE_TAG=${{ env.IMAGE_TAG }}
-            docker compose --project-name $PROJECT_NAME pull
-            docker compose --project-name $PROJECT_NAME up -d
+            docker-compose --project-name $PROJECT_NAME pull
+            docker-compose --project-name $PROJECT_NAME up -d
             docker image prune -f
 
       - name: Health check
@@ -1491,7 +1491,7 @@ jobs:
 2. 生产环境回滚必须使用上一版本 `prod-*` 或 release tag 镜像。
 3. 远程服务器分别保存测试和生产上一版本 `IMAGE_TAG`。
 4. 回滚时修改对应环境 `.env` 中 `IMAGE_TAG` 为上一版本。
-5. 执行 `docker compose --project-name <env_project> pull && docker compose --project-name <env_project> up -d`。
+5. 执行 `docker-compose --project-name <env_project> pull && docker-compose --project-name <env_project> up -d`。
 6. 回滚后再次执行对应环境健康检查。
 
 ### 16.12 部署验收标准
