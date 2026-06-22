@@ -85,6 +85,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 30m
           script: |
             set -e
             DEPLOY_DIR="${{ vars.DEPLOY_DIR }}"
@@ -113,9 +114,16 @@ jobs:
               printf '%s' '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             fi
 
+            echo "Pull images..."
             docker-compose --project-name "$PROJECT_NAME" pull
+
+            echo "Start containers..."
             docker-compose --project-name "$PROJECT_NAME" up -d
+
+            echo "Prune unused images..."
             docker image prune -f
+
+            echo "Container status..."
             docker-compose --project-name "$PROJECT_NAME" ps
       - name: Health check
         env:
