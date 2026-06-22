@@ -93,7 +93,7 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 120m
           script: |
             set -e
             DEPLOY_DIR="${{ vars.DEPLOY_DIR }}"
