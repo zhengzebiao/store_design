@@ -29,7 +29,7 @@ services:
         condition: service_healthy
 
   store-design-postgres:
-    image: postgres:16-alpine
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-store_design}
