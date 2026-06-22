@@ -53,3 +53,31 @@ Compose 启动时后端容器默认执行 `alembic upgrade head` 和 seed 数据
 - 容器前端: http://localhost:8080/store_design/home
 - 容器后端: http://localhost:8000/health
 
+## 测试环境自动部署
+
+推送到 `master` 或 `test` 分支，或手动运行 `ci` workflow 时，会构建前后端镜像并推送到 GHCR，然后通过 SSH 部署到 GitHub Environment `test` 对应服务器。
+
+服务器需要提前准备：
+
+```text
+/opt/store_design_test/docker-compose.yml
+```
+
+`docker-compose.yml` 可使用 `deploy/docker-compose.server.yml`，服务器需安装 Docker 和旧版 `docker-compose`。
+
+GitHub Environment `test` 需要配置 Secrets：
+
+- `DEPLOY_HOST`: 测试服务器地址
+- `DEPLOY_PORT`: SSH 端口，例如 `22`
+- `DEPLOY_USER`: SSH 用户
+- `DEPLOY_SSH_KEY`: SSH 私钥
+- `ENV_FILE`: 写入服务器 `.env` 的非镜像环境变量内容
+- `GHCR_TOKEN`: 可选；如果 GHCR package 是私有的，服务器拉镜像需要这个 token
+- `GHCR_USERNAME`: 可选；默认使用触发 workflow 的 GitHub 用户
+- `HEALTHCHECK_URL`: 可选；部署后用于 `curl` 检查的地址
+
+可选配置 Variables：
+
+- `DEPLOY_DIR`: 默认 `/opt/store_design_test`
+- `COMPOSE_PROJECT_NAME`: 默认 `store_design_test`
+
